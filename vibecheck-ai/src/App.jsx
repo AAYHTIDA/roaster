@@ -116,69 +116,82 @@ function startRoastAmbient(ctx, startAt) {
 }
 
 function startComplimentAmbient(ctx, startAt) {
-  // Looping soft shimmer pad (C major chord)
-  const padNotes = [261.6, 329.6, 392, 523.3];
-  const padOscs = padNotes.map((freq, i) => {
+  // === Slow breathing pad — F major (F A C F) very soft ===
+  const padNotes = [174.6, 220, 261.6, 349.2];
+  padNotes.forEach((freq, i) => {
     const osc = ctx.createOscillator();
     osc.type = 'sine';
-    osc.frequency.value = freq + i * 0.3; // tiny detune for warmth
+    osc.frequency.value = freq + i * 0.15; // micro-detune for warmth
+    // Slow volume breathe via LFO
+    const lfo = ctx.createOscillator();
+    lfo.type = 'sine';
+    lfo.frequency.value = 0.12 + i * 0.02; // each note breathes slightly differently
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = 0.018;
     const g = ctx.createGain();
     g.gain.setValueAtTime(0, startAt);
-    g.gain.linearRampToValueAtTime(0.06 - i * 0.01, startAt + 2);
+    g.gain.linearRampToValueAtTime(0.045 - i * 0.007, startAt + 4);
+    lfo.connect(lfoGain);
+    lfoGain.connect(g.gain);
     osc.connect(g);
     g.connect(ctx.destination);
+    lfo.start(startAt);
     osc.start(startAt);
-    return { osc, g };
   });
 
-  // Slow LFO tremolo on the pad
-  const tremolo = ctx.createOscillator();
-  tremolo.type = 'sine';
-  tremolo.frequency.value = 0.4;
-  const tremoloGain = ctx.createGain();
-  tremoloGain.gain.value = 0.02;
-  tremolo.start(startAt);
-  tremolo.connect(tremoloGain);
-  padOscs.forEach(({ g }) => tremoloGain.connect(g.gain));
+  // === Soft rain texture — very quiet high-passed noise ===
+  const rainBuffer = makeNoiseBuffer(ctx, 4);
+  const rain = ctx.createBufferSource();
+  rain.buffer = rainBuffer;
+  rain.loop = true;
+  const rainHP = ctx.createBiquadFilter();
+  rainHP.type = 'highpass';
+  rainHP.frequency.value = 6000;
+  const rainLP = ctx.createBiquadFilter();
+  rainLP.type = 'lowpass';
+  rainLP.frequency.value = 12000;
+  const rainGain = ctx.createGain();
+  rainGain.gain.setValueAtTime(0, startAt);
+  rainGain.gain.linearRampToValueAtTime(0.04, startAt + 3);
+  rain.connect(rainHP);
+  rainHP.connect(rainLP);
+  rainLP.connect(rainGain);
+  rainGain.connect(ctx.destination);
+  rain.start(startAt);
 
-  // Random sparkle tinkles forever
-  const scheduleSparkle = () => {
+  // === Sparse soft bell tones — pentatonic, very slow, very quiet ===
+  const bellNotes = [523.3, 587.3, 659.3, 783.9, 880];
+  const scheduleBell = () => {
     if (!ambientCtx || ambientCtx !== ctx) return;
-    const delay = 0.4 + Math.random() * 1.8;
+    const delay = 3 + Math.random() * 5; // every 3–8 seconds
     const st = ctx.currentTime + delay;
-    const freq = 1400 + Math.random() * 2200;
+    const freq = bellNotes[Math.floor(Math.random() * bellNotes.length)];
+
+    // Fundamental
     const osc = ctx.createOscillator();
     osc.type = 'sine';
     osc.frequency.value = freq;
     const g = ctx.createGain();
-    g.gain.setValueAtTime(0.08 + Math.random() * 0.1, st);
-    g.gain.exponentialRampToValueAtTime(0.001, st + 0.25);
-    osc.connect(g);
-    g.connect(ctx.destination);
-    osc.start(st);
-    osc.stop(st + 0.25);
-    setTimeout(scheduleSparkle, delay * 1000);
-  };
-  setTimeout(scheduleSparkle, (startAt - ctx.currentTime + 0.5) * 1000);
+    g.gain.setValueAtTime(0, st);
+    g.gain.linearRampToValueAtTime(0.07, st + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.001, st + 2.5);
+    osc.connect(g); g.connect(ctx.destination);
+    osc.start(st); osc.stop(st + 2.5);
 
-  // Gentle ascending arpeggio loop every ~4s
-  const scheduleArp = () => {
-    if (!ambientCtx || ambientCtx !== ctx) return;
-    const arpNotes = [523.3, 659.3, 783.9, 1046.5];
-    arpNotes.forEach((freq, i) => {
-      const st = ctx.currentTime + i * 0.18;
-      const osc = ctx.createOscillator();
-      osc.type = 'sine';
-      osc.frequency.value = freq;
-      const g = ctx.createGain();
-      g.gain.setValueAtTime(0.1, st);
-      g.gain.exponentialRampToValueAtTime(0.001, st + 0.4);
-      osc.connect(g); g.connect(ctx.destination);
-      osc.start(st); osc.stop(st + 0.4);
-    });
-    setTimeout(scheduleArp, 4000);
+    // Soft overtone
+    const ov = ctx.createOscillator();
+    ov.type = 'sine';
+    ov.frequency.value = freq * 2.76; // bell-like inharmonic partial
+    const og = ctx.createGain();
+    og.gain.setValueAtTime(0, st);
+    og.gain.linearRampToValueAtTime(0.025, st + 0.01);
+    og.gain.exponentialRampToValueAtTime(0.001, st + 1.2);
+    ov.connect(og); og.connect(ctx.destination);
+    ov.start(st); ov.stop(st + 1.2);
+
+    setTimeout(scheduleBell, delay * 1000);
   };
-  setTimeout(scheduleArp, (startAt - ctx.currentTime + 2) * 1000);
+  setTimeout(scheduleBell, (startAt - ctx.currentTime + 1) * 1000);
 }
 
 function playSound(type) {
