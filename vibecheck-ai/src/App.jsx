@@ -26,101 +26,214 @@ function useTypewriter(text, speed = 28) {
   return { displayed, done };
 }
 
+function makeNoise(ctx, duration = 1) {
+  const bufferSize = ctx.sampleRate * duration;
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  return src;
+}
+
 function playSound(type) {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const t = ctx.currentTime;
 
     if (type === 'roast') {
-      // --- Sizzle: filtered white noise ---
-      const bufferSize = ctx.sampleRate * 0.8;
-      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-      const noise = ctx.createBufferSource();
-      noise.buffer = buffer;
-      const bandpass = ctx.createBiquadFilter();
-      bandpass.type = 'bandpass';
-      bandpass.frequency.setValueAtTime(3000, t);
-      bandpass.frequency.exponentialRampToValueAtTime(800, t + 0.8);
-      bandpass.Q.value = 0.8;
-      const noiseGain = ctx.createGain();
-      noiseGain.gain.setValueAtTime(0.5, t);
-      noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
-      noise.connect(bandpass);
-      bandpass.connect(noiseGain);
-      noiseGain.connect(ctx.destination);
-      noise.start(t);
+      // === ROAST: Dramatic villain reveal ===
 
-      // --- Deep boom impact ---
+      // 1. Ominous rising tension drone (before the hit)
+      const drone = ctx.createOscillator();
+      drone.type = 'sawtooth';
+      drone.frequency.setValueAtTime(55, t);
+      drone.frequency.exponentialRampToValueAtTime(110, t + 0.6);
+      const droneFilter = ctx.createBiquadFilter();
+      droneFilter.type = 'lowpass';
+      droneFilter.frequency.setValueAtTime(200, t);
+      droneFilter.frequency.exponentialRampToValueAtTime(1200, t + 0.6);
+      const droneGain = ctx.createGain();
+      droneGain.gain.setValueAtTime(0, t);
+      droneGain.gain.linearRampToValueAtTime(0.4, t + 0.3);
+      droneGain.gain.linearRampToValueAtTime(0, t + 0.6);
+      drone.connect(droneFilter);
+      droneFilter.connect(droneGain);
+      droneGain.connect(ctx.destination);
+      drone.start(t);
+      drone.stop(t + 0.6);
+
+      // 2. CINEMATIC IMPACT BOOM at t+0.6
+      const impactTime = t + 0.6;
       const boom = ctx.createOscillator();
       boom.type = 'sine';
-      boom.frequency.setValueAtTime(120, t);
-      boom.frequency.exponentialRampToValueAtTime(40, t + 0.4);
+      boom.frequency.setValueAtTime(180, impactTime);
+      boom.frequency.exponentialRampToValueAtTime(28, impactTime + 0.7);
       const boomGain = ctx.createGain();
-      boomGain.gain.setValueAtTime(0.7, t);
-      boomGain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+      boomGain.gain.setValueAtTime(1.0, impactTime);
+      boomGain.gain.exponentialRampToValueAtTime(0.001, impactTime + 0.7);
       boom.connect(boomGain);
       boomGain.connect(ctx.destination);
-      boom.start(t);
-      boom.stop(t + 0.4);
+      boom.start(impactTime);
+      boom.stop(impactTime + 0.7);
 
-      // --- Distorted growl ---
-      const growl = ctx.createOscillator();
-      growl.type = 'sawtooth';
-      growl.frequency.setValueAtTime(80, t + 0.05);
-      growl.frequency.exponentialRampToValueAtTime(30, t + 0.5);
-      const growlGain = ctx.createGain();
-      growlGain.gain.setValueAtTime(0.25, t + 0.05);
-      growlGain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
-      growl.connect(growlGain);
-      growlGain.connect(ctx.destination);
-      growl.start(t + 0.05);
-      growl.stop(t + 0.5);
+      // 3. Punch transient click
+      const click = ctx.createOscillator();
+      click.type = 'square';
+      click.frequency.setValueAtTime(300, impactTime);
+      click.frequency.exponentialRampToValueAtTime(60, impactTime + 0.08);
+      const clickGain = ctx.createGain();
+      clickGain.gain.setValueAtTime(0.8, impactTime);
+      clickGain.gain.exponentialRampToValueAtTime(0.001, impactTime + 0.08);
+      click.connect(clickGain);
+      clickGain.connect(ctx.destination);
+      click.start(impactTime);
+      click.stop(impactTime + 0.08);
 
-    } else {
-      // --- Sparkly ascending chime sequence ---
-      const notes = [523.25, 659.25, 783.99, 1046.5, 1318.5]; // C5 E5 G5 C6 E6
-      notes.forEach((freq, i) => {
+      // 4. Fire crackle (high-freq noise burst)
+      const crackle = makeNoise(ctx, 1.2);
+      const crackleHP = ctx.createBiquadFilter();
+      crackleHP.type = 'highpass';
+      crackleHP.frequency.value = 4000;
+      const crackleLFO = ctx.createOscillator();
+      crackleLFO.type = 'square';
+      crackleLFO.frequency.setValueAtTime(18, impactTime);
+      crackleLFO.frequency.linearRampToValueAtTime(6, impactTime + 1.2);
+      const crackleLFOGain = ctx.createGain();
+      crackleLFOGain.gain.value = 0.12;
+      const crackleGain = ctx.createGain();
+      crackleGain.gain.setValueAtTime(0.18, impactTime);
+      crackleGain.gain.exponentialRampToValueAtTime(0.001, impactTime + 1.2);
+      crackleLFO.connect(crackleLFOGain);
+      crackleLFOGain.connect(crackleGain.gain);
+      crackle.connect(crackleHP);
+      crackleHP.connect(crackleGain);
+      crackleGain.connect(ctx.destination);
+      crackleLFO.start(impactTime);
+      crackleLFO.stop(impactTime + 1.2);
+      crackle.start(impactTime);
+
+      // 5. Descending horror stinger (3 notes dropping fast)
+      [220, 174.6, 130.8].forEach((freq, i) => {
+        const st = impactTime + i * 0.13;
         const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.value = freq;
-        const start = t + i * 0.1;
-        gain.gain.setValueAtTime(0, start);
-        gain.gain.linearRampToValueAtTime(0.35, start + 0.03);
-        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.5);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(start);
-        osc.stop(start + 0.5);
-
-        // Harmonic shimmer on each note
-        const shimmer = ctx.createOscillator();
-        const shimmerGain = ctx.createGain();
-        shimmer.type = 'sine';
-        shimmer.frequency.value = freq * 2;
-        shimmerGain.gain.setValueAtTime(0, start);
-        shimmerGain.gain.linearRampToValueAtTime(0.1, start + 0.03);
-        shimmerGain.gain.exponentialRampToValueAtTime(0.001, start + 0.4);
-        shimmer.connect(shimmerGain);
-        shimmerGain.connect(ctx.destination);
-        shimmer.start(start);
-        shimmer.stop(start + 0.4);
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(freq, st);
+        osc.frequency.exponentialRampToValueAtTime(freq * 0.7, st + 0.12);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.3, st);
+        g.gain.exponentialRampToValueAtTime(0.001, st + 0.2);
+        osc.connect(g);
+        g.connect(ctx.destination);
+        osc.start(st);
+        osc.stop(st + 0.2);
       });
 
-      // --- Warm pad swell underneath ---
-      const pad = ctx.createOscillator();
-      pad.type = 'triangle';
-      pad.frequency.value = 261.63; // C4
-      const padGain = ctx.createGain();
-      padGain.gain.setValueAtTime(0, t);
-      padGain.gain.linearRampToValueAtTime(0.15, t + 0.2);
-      padGain.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
-      pad.connect(padGain);
-      padGain.connect(ctx.destination);
-      pad.start(t);
-      pad.stop(t + 1.2);
+      // 6. Crowd "OOOH" reaction — detuned choir-like pads
+      [130, 195, 260].forEach((freq, i) => {
+        const st = impactTime + 0.5 + i * 0.05;
+        const osc = ctx.createOscillator();
+        osc.type = 'triangle';
+        osc.frequency.value = freq + (i * 3); // slight detune
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, st);
+        g.gain.linearRampToValueAtTime(0.12, st + 0.15);
+        g.gain.exponentialRampToValueAtTime(0.001, st + 0.9);
+        osc.connect(g);
+        g.connect(ctx.destination);
+        osc.start(st);
+        osc.stop(st + 0.9);
+      });
+
+    } else {
+      // === COMPLIMENT: Full orchestral fanfare ===
+
+      // 1. Harp glissando — rapid ascending notes
+      const harpNotes = [261.6, 329.6, 392, 493.9, 523.3, 659.3, 783.9, 987.8, 1046.5, 1318.5];
+      harpNotes.forEach((freq, i) => {
+        const st = t + i * 0.055;
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, st);
+        g.gain.linearRampToValueAtTime(0.22, st + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, st + 0.45);
+        // shimmer harmonic
+        const sh = ctx.createOscillator();
+        sh.type = 'sine';
+        sh.frequency.value = freq * 2;
+        const sg = ctx.createGain();
+        sg.gain.setValueAtTime(0.07, st);
+        sg.gain.exponentialRampToValueAtTime(0.001, st + 0.3);
+        sh.connect(sg); sg.connect(ctx.destination);
+        sh.start(st); sh.stop(st + 0.3);
+        osc.connect(g); g.connect(ctx.destination);
+        osc.start(st); osc.stop(st + 0.45);
+      });
+
+      const fanfareTime = t + 0.55;
+
+      // 2. Triumphant brass chord (fanfare hit)
+      [[261.6, 329.6, 392, 523.3], [523.3, 659.3, 783.9, 1046.5]].forEach((chord, ci) => {
+        const st = fanfareTime + ci * 0.35;
+        chord.forEach(freq => {
+          const osc = ctx.createOscillator();
+          osc.type = 'square';
+          osc.frequency.value = freq;
+          const filter = ctx.createBiquadFilter();
+          filter.type = 'lowpass';
+          filter.frequency.value = 1800;
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(0, st);
+          g.gain.linearRampToValueAtTime(0.18, st + 0.04);
+          g.gain.setValueAtTime(0.18, st + 0.15);
+          g.gain.exponentialRampToValueAtTime(0.001, st + 0.5);
+          osc.connect(filter); filter.connect(g); g.connect(ctx.destination);
+          osc.start(st); osc.stop(st + 0.5);
+        });
+      });
+
+      // 3. Sparkle burst — random high tinkles
+      for (let i = 0; i < 14; i++) {
+        const st = fanfareTime + Math.random() * 0.8;
+        const freq = 1200 + Math.random() * 2400;
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.12, st);
+        g.gain.exponentialRampToValueAtTime(0.001, st + 0.18);
+        osc.connect(g); g.connect(ctx.destination);
+        osc.start(st); osc.stop(st + 0.18);
+      }
+
+      // 4. Warm string swell underneath
+      [130.8, 196, 261.6, 329.6].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        osc.type = 'triangle';
+        osc.frequency.value = freq;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, fanfareTime);
+        g.gain.linearRampToValueAtTime(0.1 - i * 0.015, fanfareTime + 0.3);
+        g.gain.exponentialRampToValueAtTime(0.001, fanfareTime + 1.4);
+        osc.connect(g); g.connect(ctx.destination);
+        osc.start(fanfareTime); osc.stop(fanfareTime + 1.4);
+      });
+
+      // 5. Final resolution ding
+      const dingTime = fanfareTime + 0.7;
+      [1046.5, 1318.5, 1568].forEach((freq, i) => {
+        const st = dingTime + i * 0.08;
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.3, st);
+        g.gain.exponentialRampToValueAtTime(0.001, st + 0.6);
+        osc.connect(g); g.connect(ctx.destination);
+        osc.start(st); osc.stop(st + 0.6);
+      });
     }
   } catch (_) {}
 }
