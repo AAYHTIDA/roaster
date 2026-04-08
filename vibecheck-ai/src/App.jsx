@@ -319,9 +319,7 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        <p className={`text-center text-xs mt-8 ${isRoast ? 'text-gray-600' : 'text-pink-300'}`}>
-          Made with {isRoast ? '🔥' : '💖'} for IIIT Kottayam
-        </p>
+
       </div>
     </div>
   );
